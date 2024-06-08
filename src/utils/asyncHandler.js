@@ -1,5 +1,6 @@
 const asyncHandler = (resultHandler) => {
-  (req, res, next) => {
+  //(req,res,next) is express middleware for handling asynchronous call
+  return (req, res, next) => {
     Promise.resolve(resultHandler(req, res, next)).catch((err) => next(err));
   };
 };
