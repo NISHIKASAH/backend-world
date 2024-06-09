@@ -3,6 +3,8 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import jwt from "jsonwebtoken";
 import { User } from "../models/user.model.js";
 
+//using this middlware  , user details can be access(eg-req.user) ,if
+//the user is login
 export const verifyJWT = asyncHandler(async (req, _, next) => {
   try {
     const token =

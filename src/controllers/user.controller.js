@@ -51,6 +51,7 @@ const registerUser = asyncHandler(async (req, res) => {
   }
   //console.log(req.files);
 
+  //here we are taking multiple files(image) in upload (look at upload middleware in routing endpoint)
   const avatarLocalPath = req.files?.avatar[0]?.path;
   //const coverImageLocalPath = req.files?.coverImage[0]?.path;
 
@@ -167,7 +168,7 @@ const logOut = async (req, res) => {
     httpOnly: true,
     secure: true,
   };
-  res
+  return res
     .status(200)
     .clearCookie("accessToken", options)
     .clearCookie("refreshToken", options)
@@ -199,7 +200,7 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
       httpOnly: true,
       secure: true,
     };
-    res
+    return res
       .status(200)
       .cookie("accessToken", accessToken, options)
       .cookie("refreshToken", newrefreshToken, options)
@@ -217,4 +218,124 @@ const refreshAccessToken = asyncHandler(async (req, res) => {
     throw new ApiError(401, "invalid access or refresh Token");
   }
 });
-export { registerUser, loginUser, logOut, refreshAccessToken };
+const changeCurrentPassword = asyncHandler(async (req, res) => {
+  //get oldpassword req.user
+  //get new password from req.body
+  //verify password using ispasswordcorrect
+  //change password and update user
+  const { oldpassword, newpassword } = req.body;
+  if (!oldpassword && !newpassword) {
+    throw new ApiError(401, "field cannot be empty");
+  }
+  const userdetails = await User.findById(req.user._id);
+
+  const passwordValidation = await userdetails.isPasswordCorrect(oldpassword);
+  if (!passwordValidation) {
+    throw new ApiError(400, " oldpassword is invalid");
+  }
+  userdetails.password = newpassword;
+  await userdetails.save({ validateBeforeSave: false });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "password change successfully"));
+});
+const getCurrentUser = asyncHandler(async (req, res) => {
+  return res
+    .status(200)
+    .json(new ApiResponse(200, req.user, "current user fetch successfully"));
+});
+const updateAccountDetails = asyncHandler(async (req, res) => {
+  //fullname ,email
+  //identify user in db and update
+  //send response with updated user profile
+  const { email, fullName } = req.body;
+  if (!email && !password) {
+    throw new ApiError(401, "user fieild cannot be empty");
+  }
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        email: email,
+        fullName: fullName,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select("-password ");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "user update successfully"));
+});
+
+const updateUserAvatar = asyncHandler(async (req, res) => {
+  //get avatarpath
+  //update on db
+  //upload new path on cloudinary
+  //delete the temp store files(avatar)
+  const avatarPath = req.file?.path;
+  if (!avatarPath) {
+    throw new ApiError(401, "user field cannot be empty");
+  }
+  const avatar = await uploadOnCloudinary(avatarPath);
+  if (!avatar.url) {
+    throw new ApiError(400, "avatar file is required");
+  }
+
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        avatar: avatar.url,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Avatar updated successfully"));
+});
+const updateUserCoverImage = asyncHandler(async (req, res) => {
+  const coverImageLocalPath = req.file?.path;
+  if (!coverImageLocalPath) {
+    throw new ApiError(400, "cover image is missing");
+  }
+  const coverImagedetails = await uploadOnCloudinary(coverImageLocalPath);
+  if (!coverImagedetails.url) {
+    throw new ApiError(400, " not upload on cloudinary , no details available");
+  }
+  const user = await User.findByIdAndUpdate(
+    req.user?._id,
+    {
+      $set: {
+        coverImage: coverImagedetails.url,
+      },
+    },
+    {
+      new: true,
+    }
+  ).select("-password");
+  return res
+    .status(200)
+    .json(new ApiResponse(200, user, "coverImage updated successfully"));
+});
+
+const getUserChannelProfile = asyncHandler(async (req, res) => {
+  //get user details
+  //
+});
+
+export {
+  registerUser,
+  loginUser,
+  logOut,
+  refreshAccessToken,
+  changeCurrentPassword,
+  getCurrentUser,
+  updateAccountDetails,
+  updateUserAvatar,
+  updateUserCoverImage,
+};
