@@ -324,8 +324,84 @@ const updateUserCoverImage = asyncHandler(async (req, res) => {
 });
 
 const getUserChannelProfile = asyncHandler(async (req, res) => {
-  //get user details
-  //
+  //---using mongoose aggregation pipeline for all operation here
+  //filtering User to get userdetail of requested user
+  //join user with subscribe model using aggregation pipeline(lookup)
+  //adding some field in User model
+  //exclduing some field
+  //sending a res
+  //aggregation pipleline return [{},{}](mostly) or {}
+  const { username } = req.params;
+  if (!username?.trim()) {
+    throw new ApiError(404, "channel does not exists");
+  }
+  const channel = await User.aggregate([
+    {
+      $match: {
+        username: username?.toLowerCase(),
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "channel",
+        as: "subscribers",
+      },
+    },
+    {
+      $lookup: {
+        from: "subscriptions",
+        localField: "_id",
+        foreignField: "subscriber",
+        as: "subscribedTo",
+      },
+    },
+    {
+      $addFields: {
+        channelSubscriberCount: {
+          $size: "$subscribers",
+        },
+      },
+      channelSubscribeToCount: {
+        $size: "$subscribedTo",
+      },
+    },
+    {
+      isSubscribe: {
+        $cond: {
+          //id is present inside subscription.subscribe
+          if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+          then: true,
+          else: false,
+        },
+      },
+    },
+    {
+      $project: {
+        fullname: 1,
+        username: 1,
+        email: 1,
+        avatar: 1,
+        coverImage: 1,
+        channelSubscriberCount: 1,
+        channelSubscribeToCount: 1,
+        isSubscribe: 1,
+      },
+    },
+  ]);
+  if (!channel) {
+    throw new ApiError(404, "channel does not exists");
+  }
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        channel[0],
+        "User(channel) profil details fetch successfully"
+      )
+    );
 });
 
 export {
@@ -338,4 +414,5 @@ export {
   updateAccountDetails,
   updateUserAvatar,
   updateUserCoverImage,
+  getUserChannelProfile,
 };
